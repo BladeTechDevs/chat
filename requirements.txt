@@ -1,6 +1,16 @@
+# --- Dependencias principales ---
+flask
+flask-socketio
+eventlet
+
+# --- Base de datos ---
 sqlalchemy
+sqlalchemy-utils
 pymysql
+
+# --- Extras para consola (colores, banners, etc.) ---
 colorama
 pyfiglet
+
+# --- Seguridad ---
 cryptography
-sqlalchemy-utils
