@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, simpledialog
 from tkinter import font
 import re
+from crypto_utils import encrypt_message, decrypt_message
 
 # Configuración: HOST y PORT deben coincidir con el servidor
 HOST = "127.0.0.1"
@@ -475,25 +476,48 @@ class ChatClient:
         receive_thread.daemon = True
         receive_thread.start()
         
+    # def receive_messages(self):
+    #     while self.connected:
+    #         try:
+    #             message = self.client.recv(4096).decode("utf-8")
+    #             if not message:
+    #                 self.add_bubble_message("❌ Conexión cerrada por el servidor", "system")
+    #                 self.connected = False
+    #                 break
+                    
+    #             if message == "NICK":
+    #                 self.client.send(self.nickname.encode("utf-8"))
+    #                 continue
+                
+    #             self.process_received_message(message)
+                
+    #         except Exception:
+    #             if self.connected:
+    #                 self.add_bubble_message("⚠️ Error recibiendo datos del servidor", "system")
+    #             break
+
     def receive_messages(self):
         while self.connected:
             try:
-                message = self.client.recv(4096).decode("utf-8")
-                if not message:
+                data = self.client.recv(4096)
+                if not data:
                     self.add_bubble_message("❌ Conexión cerrada por el servidor", "system")
                     self.connected = False
                     break
-                    
-                if message == "NICK":
-                    self.client.send(self.nickname.encode("utf-8"))
-                    continue
-                
+
+                # 🔐 Intentar descifrar el mensaje
+                try:
+                    message = decrypt_message(data)
+                except Exception:
+                    message = data.decode("utf-8")  # si no está cifrado
+
                 self.process_received_message(message)
                 
             except Exception:
                 if self.connected:
                     self.add_bubble_message("⚠️ Error recibiendo datos del servidor", "system")
                 break
+
                 
     def process_received_message(self, message):
         """Procesar y mostrar mensaje recibido"""
@@ -534,6 +558,26 @@ class ChatClient:
             else:
                 self.add_bubble_message(message, "system")
         
+    # def send_message(self, event=None):
+    #     if not self.connected:
+    #         return
+            
+    #     msg = self.message_entry.get().strip()
+    #     if not msg:
+    #         return
+            
+    #     try:
+    #         if msg.lower() == "/quit":
+    #             self.disconnect()
+    #             return
+                
+    #         self.add_bubble_message(f"Tú: {msg}", "sent")
+            
+    #         self.client.send(msg.encode("utf-8"))
+    #         self.message_entry.delete(0, 'end')
+            
+    #     except Exception:
+    #         self.add_bubble_message("❌ Error enviando mensaje", "system")
     def send_message(self, event=None):
         if not self.connected:
             return
@@ -549,7 +593,9 @@ class ChatClient:
                 
             self.add_bubble_message(f"Tú: {msg}", "sent")
             
-            self.client.send(msg.encode("utf-8"))
+            # 🔐 Encriptar mensaje antes de enviarlo
+            encrypted_msg = encrypt_message(msg)
+            self.client.send(encrypted_msg)
             self.message_entry.delete(0, 'end')
             
         except Exception:
