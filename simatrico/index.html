@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Web con FastAPI y JWT</title>
+  <style>
+    body { font-family: Arial; background: #eef; margin: 0; padding: 0; }
+    .container { width: 400px; margin: 30px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px #aaa; }
+    #login-section, #chat-section { display: none; }
+    #chat-box { height: 300px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #f9f9f9; }
+    input, button { padding: 8px; margin: 5px 0; width: 100%; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>💬 Chat Web con Usuarios</h2>
+
+    <!-- Sección de login/registro -->
+    <div id="login-section">
+      <h3>Inicia sesión o regístrate</h3>
+      <input type="text" id="username" placeholder="Usuario" />
+      <input type="password" id="password" placeholder="Contraseña" />
+      <button id="registerBtn">Registrar</button>
+      <button id="loginBtn">Iniciar sesión</button>
+      <p id="status"></p>
+    </div>
+
+    <!-- Sección del chat -->
+    <div id="chat-section">
+      <h3 id="welcome"></h3>
+      <div id="chat-box"></div>
+      <input type="text" id="msg" placeholder="Escribe tu mensaje..." />
+      <button id="sendBtn">Enviar</button>
+      <button id="logoutBtn" style="background:#dc3545;">Salir</button>
+    </div>
+  </div>
+
+  <script>
+    const loginSection = document.getElementById("login-section");
+    const chatSection = document.getElementById("chat-section");
+    const status = document.getElementById("status");
+    const chatBox = document.getElementById("chat-box");
+    const usernameInput = document.getElementById("username");
+    const passwordInput = document.getElementById("password");
+    const msgInput = document.getElementById("msg");
+    const sendBtn = document.getElementById("sendBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const welcome = document.getElementById("welcome");
+
+    let token = null;
+    let ws = null;
+    let username = null;
+
+    // Mostrar login al inicio
+    loginSection.style.display = "block";
+
+    async function register() {
+      const res = await fetch("/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: usernameInput.value,
+          password: passwordInput.value
+        })
+      });
+      if (res.ok) {
+        status.textContent = "✅ Usuario registrado con éxito. Ahora inicia sesión.";
+      } else {
+        status.textContent = "❌ Error al registrar (puede que el usuario ya exista).";
+      }
+    }
+
+    async function login() {
+      const res = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: usernameInput.value,
+          password: passwordInput.value
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        token = data.access_token;
+        username = usernameInput.value;
+        status.textContent = "";
+        loginSection.style.display = "none";
+        chatSection.style.display = "block";
+        welcome.textContent = `Bienvenido, ${username}`;
+        connectWebSocket();
+      } else {
+        status.textContent = "❌ Credenciales incorrectas.";
+      }
+    }
+
+    function connectWebSocket() {
+      ws = new WebSocket(`ws://localhost:8000/ws/${token}`);
+
+      ws.onmessage = (event) => {
+        const msg = document.createElement("div");
+        msg.textContent = event.data;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      };
+
+      ws.onclose = () => {
+        const msg = document.createElement("div");
+        msg.textContent = "⚠️ Desconectado del servidor.";
+        msg.style.color = "red";
+        chatBox.appendChild(msg);
+      };
+    }
+
+    sendBtn.onclick = () => {
+      if (msgInput.value.trim() !== "") {
+        ws.send(msgInput.value);
+        const msg = document.createElement("div");
+        msg.textContent = `Tú: ${msgInput.value}`;
+        msg.style.color = "blue";
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        msgInput.value = "";
+      }
+    };
+
+    logoutBtn.onclick = () => {
+      ws.close();
+      token = null;
+      username = null;
+      chatSection.style.display = "none";
+      loginSection.style.display = "block";
+      usernameInput.value = "";
+      passwordInput.value = "";
+      chatBox.innerHTML = "";
+    };
+
+    document.getElementById("registerBtn").onclick = register;
+    document.getElementById("loginBtn").onclick = login;
+  </script>
+</body>
+</html>
